@@ -88,6 +88,7 @@ Message property DTEC_PerkEarnedMsg auto
 Message property DTEC_AllDisabledMsg auto
 Message property DTEC_AllEnabledMsg auto
 Message property DTEC_ErrorQuestStopMsg auto
+Message property DTEC_PerkAdvanceErrorMsg auto
 
 ;FormList property DTEC_CampHeatSource_EmbersFL auto
 FormList property DTEC_CampHeatSource_MediumFL auto
@@ -98,6 +99,7 @@ FormList property Camp_WarmBaseTentsFL auto   ; only need if no Frostfall
 Keyword property IsCampfireTentWarmKW auto
 Keyword property IsCampfireTentNoShelterKW auto
 Keyword property IsCampfireTentWaterProofKW auto
+FormList property DTEC_ModTentShelterList auto
 
 ; ------------- hidden 
 
@@ -106,6 +108,7 @@ FormList property SurvivalWarmList auto hidden
 ; let's give free perks for starting at higher levels
 int property FreePerkPoints auto hidden 
 bool property CampDataInitialized auto hidden
+int property PerkAdvanceErrorCount auto hidden
 
 ; goal maximizing points per day: 0.1156 or perk point every 9 game-days
 ; if player chooses to fight in armor then perk gain every 14 game-days
@@ -189,7 +192,7 @@ Event OnSleepStop(bool abInterrupted)
 		
 		;Debug.Trace(myScriptName + " Warm Tent SleepStop - hours since last sleep: " + hoursSinceLastSleep)
 		
-		if (hoursSinceLastSleep > 14.0)
+		if (hoursSinceLastSleep > 17.0)
 			; limit refresh to once a day
 			float sleepHours = DTEC_CommonF.GetGameTimeHoursDifference(currentTime, sleepStartTime)
 			ApplyPlayerPerkPointsSleep(sleepHours)
@@ -315,7 +318,11 @@ Function ApplyPlayerPerkPoints(float perkPoints, bool skipChecks = false, bool s
 			endIf
 		
 			if ((totalPointsCheck + 0.33) < currentPointsEarned as float)
+				PerkAdvanceErrorCount += 1
+				
 				Debug.Trace(myScriptName + "ApplyPerks: totalPoints < points earned! " + totalPointsCheck + ", " + currentPointsEarned)
+				DTEC_PerkAdvanceErrorMsg.Show()
+				
 				if (pointsToSpend > 0)
 					int pointDiff = currentPointsEarned - Math.Floor(totalPointsCheck)
 					pointsToSpend = pointsToSpend - pointDiff
@@ -326,7 +333,11 @@ Function ApplyPlayerPerkPoints(float perkPoints, bool skipChecks = false, bool s
 				else
 					perkProgress -= perkPoints
 				endIf
+			else
+				PerkAdvanceErrorCount = 0
 			endIf
+		elseIf (skipChecks)
+			PerkAdvanceErrorCount = 0
 		endIf
 		
 		if (perkProgress + 0.01 >= 1.0)
@@ -361,7 +372,7 @@ Function ApplyPlayerPerkPointsSleep(float sleepHours)
 		totalRests += 1
 		DTEC_WarmRestTotal.SetValueInt(totalRests)
 
-		ApplyPlayerPerkPoints(PointsPerSleep)
+		ApplyPlayerPerkPoints(PointsPerSleep, (PerkAdvanceErrorCount > 2), false)
 	endIf
 endFunction
 
@@ -787,9 +798,17 @@ bool Function IsTentWarm(ObjectReference tentRef)
 		endIf
 		
 		Form tentForm = tentRef.GetBaseObject()
-		if tentForm.HasKeyword(IsCampfireTentNoShelterKW)
+		Debug.Trace("DTEC base tent: " + tentForm)
+		
+		if (DTEC_ModTentShelterList.HasForm(tentForm))
+			Debug.Trace("DTEC tent on ModTent List")
+			if (frostfallNearFire)
+				return true
+			endIf
+			heatSource = GetFireNear(tentRef, 1600.0 + distOffset)
+		elseIf tentForm.HasKeyword(IsCampfireTentNoShelterKW)
 			if (DTEC_PerkRank_SleepPro.GetValueInt() > 0)
-				; allow outdoors with perk
+				; allow outdoors with perk 
 				if (frostfallNearFire)
 					float dist = FrostUtil.GetPlayerHeatSourceDistance()
 					if (dist < 400)

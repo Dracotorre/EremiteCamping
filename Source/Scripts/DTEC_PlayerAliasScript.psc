@@ -21,6 +21,7 @@ GlobalVariable property DTEC_Version auto
 GlobalVariable property DTEC_MonitorTentsEnable auto
 GlobalVariable property DTEC_IsOrdinatorActive auto
 GlobalVariable property DTEC_IsFrostfallActive auto
+GlobalVariable property DTEC_IsTentapaloozaActive auto
 Message property DTEC_CampfireUpdateSuccessMessage auto
 Weapon property DTEC_Axe auto
 ;Light property Camp_Campfire_Light_2 auto   ; the tiny starter fire
@@ -29,6 +30,8 @@ Light property Camp_Campfire_Light_4 auto
 Light property Camp_Campfire_Light_5 auto
 Activator property Camp_ObjectRubbleFire auto  ; burning tent
 GlobalVariable property Campfire_Version auto
+FormList property DTEC_ModTentShelterList auto
+
 
 bool reqOnUpdate = false   ; flag to process OnUpdate event
 
@@ -98,6 +101,31 @@ Function MaintainMod()
 			DTEC_IsOrdinatorActive.SetValueInt(1)
 		endIf
 	endIf
+	
+	if (DTEC_IsTentapaloozaActive.GetValueInt() < 1)
+		Form tentForm = DTEC_CommonF.IsPluginActive(0x09450149, "Tentapalooza.esp")
+		if (tentForm)
+			DTEC_IsTentapaloozaActive.SetValueInt(1)
+			if (!DTEC_ModTentShelterList.HasForm(tentForm))
+				DTEC_ModTentShelterList.AddForm(tentForm)
+				DTEC_ModTentShelterList.AddForm(Game.GetFormFromFile(0x0946965C, "Tentapalooza.esp"))
+				DTEC_ModTentShelterList.AddForm(Game.GetFormFromFile(0x416038F6, "Tentapalooza.esp"))
+				DTEC_ModTentShelterList.AddForm(Game.GetFormFromFile(0x41469666, "Tentapalooza.esp"))
+				DTEC_ModTentShelterList.AddForm(Game.GetFormFromFile(0x4146966D, "Tentapalooza.esp"))
+				DTEC_ModTentShelterList.AddForm(Game.GetFormFromFile(0x41469672, "Tentapalooza.esp"))
+				DTEC_ModTentShelterList.AddForm(Game.GetFormFromFile(0x41469687, "Tentapalooza.esp"))
+				DTEC_ModTentShelterList.AddForm(Game.GetFormFromFile(0x4155C7D2, "Tentapalooza.esp"))
+				DTEC_ModTentShelterList.AddForm(Game.GetFormFromFile(0x41594285, "Tentapalooza.esp"))
+				DTEC_ModTentShelterList.AddForm(Game.GetFormFromFile(0x415BCA99, "Tentapalooza.esp"))
+				DTEC_ModTentShelterList.AddForm(Game.GetFormFromFile(0x415D0EA6, "Tentapalooza.esp"))
+				DTEC_ModTentShelterList.AddForm(Game.GetFormFromFile(0x415D0EAF, "Tentapalooza.esp"))
+				DTEC_ModTentShelterList.AddForm(Game.GetFormFromFile(0x415DB0BA, "Tentapalooza.esp"))
+				DTEC_ModTentShelterList.AddForm(Game.GetFormFromFile(0x415D0EAF, "Tentapalooza.esp"))
+			endIf
+		endIf
+	endIf
+	
+	
 	Debug.Trace("[DTEC] ============================================================")
 	Debug.Trace("[DTEC]   Eremite Camping check done")
 	Debug.Trace("[DTEC] ============================================================")
