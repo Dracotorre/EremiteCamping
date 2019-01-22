@@ -9,6 +9,7 @@ GlobalVariable property DTEC_IsSE auto
 GlobalVariable property DTECP_InitCampData auto
 GlobalVariable property DTECP_CampfireUpdated auto
 GlobalVariable property DTEC_IsFrostfallActive auto
+GlobalVariable property DTEC_VendorStockEnabled auto
 Message property DTECP_CampfireUpdateSuccessMessage auto
 Message property DTECP_UpdateFailMessage auto
 Message property DTECP_EremiteFoundMessage auto
@@ -50,7 +51,7 @@ Form Function IsPluginActive(int formID, string pluginName)
 EndFunction
 
 Function StopAll()
-	; nothing else to do
+	DTEC_VendorStockEnabled.SetValueInt(-1)
 	self.Stop()
 endFunction
 

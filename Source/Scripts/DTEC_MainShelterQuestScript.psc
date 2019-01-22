@@ -899,8 +899,7 @@ Function StartAll()
 		if (DTEC_SettingEnabled.GetValueInt()== -2 && DTEC_ErrorQuestStopShown.GetValueInt() >= 1)
 			return
 		endIf
-	endif
-	
+	endIf
 	
 	;DTECPlayerAlias.ForceRefTo(PlayerRef)
 	
