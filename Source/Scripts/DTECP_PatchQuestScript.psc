@@ -152,7 +152,7 @@ Function UpdateCampfireData()
 			DTECP_CampfireUpdateSuccessMessage.Show()
 		else
 			DTECP_CampfireUpdated.SetValue(-1.0)
-			DTECP_UpdateFailMessage.Show()
+			;DTECP_UpdateFailMessage.Show()
 		endIf
 	endIf
 endFunction  
