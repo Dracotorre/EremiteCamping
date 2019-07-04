@@ -26,6 +26,7 @@ Event OnLoad()
 endEvent
 
 Event OnInit()
+	CampDataInitialized = false
 	Utility.Wait(1.0)
 	if (CheckEremiteCamping())
 		return
@@ -56,38 +57,41 @@ Function StopAll()
 endFunction
 
 Function CheckArmor()
+	
 	(DTECP_PlayerAliasP as DTEC_EquipMonitor).MyRemovedCuirass = None
 	(DTECP_PlayerAliasP as DTEC_EquipMonitor).MyRemovedCloak = None
 	(DTECP_PlayerAliasP as DTEC_EquipMonitor).MyCloakTentStore = None
 	(DTECP_PlayerAliasP as DTEC_EquipMonitor).MyRemovedOther = None
 	
-	DTECP_InitCampData.SetValueInt(1)
-	Utility.Wait(0.05)
-	PlayerRef.UnequipItemSlot(32)
-	Utility.Wait(0.5)
-	PlayerRef.UnequipItemSlot(46)
-	Utility.Wait(1.0)
-	Armor bodyArm = (DTECP_PlayerAliasP as DTEC_EquipMonitor).MyRemovedCuirass
-	if (bodyArm)
-		PlayerRef.EquipItem(bodyArm, false, true)
+	if (!CampDataInitialized)
+		DTECP_InitCampData.SetValueInt(1)
+		Utility.Wait(0.05)
+		PlayerRef.UnequipItemSlot(32)
 		Utility.Wait(0.5)
+		PlayerRef.UnequipItemSlot(46)
+		Utility.Wait(1.0)
+		Armor bodyArm = (DTECP_PlayerAliasP as DTEC_EquipMonitor).MyRemovedCuirass
+		if (bodyArm)
+			PlayerRef.EquipItem(bodyArm, false, true)
+			Utility.Wait(0.5)
+		endIf
+		Armor cloak = (DTECP_PlayerAliasP as DTEC_EquipMonitor).MyRemovedCloak
+		if (cloak)
+			PlayerRef.EquipItem(cloak, false, true)
+		endIf
+		Armor other = (DTECP_PlayerAliasP as DTEC_EquipMonitor).MyRemovedOther
+		if (other)
+			PlayerRef.EquipItem(other, false, true)
+		endIf
+		CampDataInitialized = true
+		
+		DTECP_InitCampData.SetValueInt(0)
+		
+		(DTECP_PlayerAliasP as DTEC_EquipMonitor).MyRemovedCuirass = None
+		(DTECP_PlayerAliasP as DTEC_EquipMonitor).MyRemovedCloak = None
+		(DTECP_PlayerAliasP as DTEC_EquipMonitor).MyCloakTentStore = None
+		(DTECP_PlayerAliasP as DTEC_EquipMonitor).MyRemovedOther = None
 	endIf
-	Armor cloak = (DTECP_PlayerAliasP as DTEC_EquipMonitor).MyRemovedCloak
-	if (cloak)
-		PlayerRef.EquipItem(cloak, false, true)
-	endIf
-	Armor other = (DTECP_PlayerAliasP as DTEC_EquipMonitor).MyRemovedOther
-	if (other)
-		PlayerRef.EquipItem(other, false, true)
-	endIf
-	CampDataInitialized = true
-	
-	DTECP_InitCampData.SetValueInt(0)
-	
-	(DTECP_PlayerAliasP as DTEC_EquipMonitor).MyRemovedCuirass = None
-	(DTECP_PlayerAliasP as DTEC_EquipMonitor).MyRemovedCloak = None
-	(DTECP_PlayerAliasP as DTEC_EquipMonitor).MyCloakTentStore = None
-	(DTECP_PlayerAliasP as DTEC_EquipMonitor).MyRemovedOther = None
 endFunction
 
 bool Function CheckEremiteCamping()
@@ -131,11 +135,11 @@ Function UpdateCampfireData()
 		StopAll()
 	endIf
 	if (doUpgrade)
+	
 		if (Game.IsFightingControlsEnabled())
 			CheckArmor()
 		endIf
 		Debug.Trace("[DTECP] updating Campfire for Survival Mode...")
-		
 		
 		FormList warmUpFormList = IsPluginActive(0x050008AA, "ccqdrsse001-survivalmode.esl") as FormList
 		if (warmUpFormList)

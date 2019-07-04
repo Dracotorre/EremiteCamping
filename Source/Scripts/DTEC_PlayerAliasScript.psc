@@ -147,7 +147,7 @@ Function UpdateCampfireData()
 			return
 		endIf
 	endIf
-	Debug.Trace("[DTEC] updating Campfire for Survival...")
+	;Debug.Trace("[DTEC] updating Campfire for Survival...")
 	
 	FormList warmUpFormList = DTEC_CommonF.IsPluginActive(0x050008AA, "ccqdrsse001-survivalmode.esl") as FormList
 	if (warmUpFormList)
@@ -169,4 +169,5 @@ Function UpdateCampfireData()
 		DTEC_CampfireUpdated.SetValue(-1.0)
 		;DTEC_UpdateFailMessage.Show()
 	endIf
-endFunction  
+endFunction 
+
