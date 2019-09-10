@@ -757,7 +757,7 @@ endFunction
 bool Function IsPlayerInArmor()
 	if (PlayerRef.WornHasKeyword(ArmorLightKY) || PlayerRef.WornHasKeyword(ArmorHeavyKY))
 		if (PlayerRef.GetActorValue("DamageResist") == 0.0)
-			Debug.Trace(myScriptName + " IsPlayerInArmor - has armor keywords, but zero damage-resist total -- return false")
+			;Debug.Trace(myScriptName + " IsPlayerInArmor - has armor keywords, but zero damage-resist total -- return false")
 			return false
 		endIf
 		return true
@@ -824,10 +824,10 @@ bool Function IsTentWarm(ObjectReference tentRef)
 		endIf
 		
 		Form tentForm = tentRef.GetBaseObject()
-		Debug.Trace("DTEC base tent: " + tentForm)
+		;Debug.Trace("DTEC base tent: " + tentForm)
 		
 		if (DTEC_ModTentShelterList.HasForm(tentForm))
-			Debug.Trace("DTEC tent on ModTent List")
+			;Debug.Trace("DTEC tent on ModTent List")
 			if (frostfallNearFire)
 				return true
 			endIf

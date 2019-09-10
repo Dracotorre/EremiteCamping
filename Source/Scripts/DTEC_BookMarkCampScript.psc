@@ -47,12 +47,12 @@ Event OnRead()
 						
 					DTEC_MarkCampQuest.SetStage(10)
 				else
-					Debug.Trace("[DTEC_RingMark] no campfireTent found!!")
+					;Debug.Trace("[DTEC_RingMark] no campfireTent found!!")
 					DTEC_MarkCampQuest.Stop()
 					DisplayNoCampFound()
 				endIf
 			else
-				Debug.Trace("[DTEC_RingMark] CampRefAlias is None!")
+				;Debug.Trace("[DTEC_RingMark] CampRefAlias is None!")
 				DTEC_MarkCampQuest.Stop()
 				DisplayNoCampFound()
 			endIf
