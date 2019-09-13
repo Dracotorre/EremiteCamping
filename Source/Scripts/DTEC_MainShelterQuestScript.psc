@@ -37,6 +37,7 @@ Keyword property ArmorLightKY auto
 Keyword property ArmorHeavyKY auto
 Keyword property MagicArmorSpellKY auto
 Spell Property WerewolfChange auto
+MagicEffect property doomLordDamageEffect auto
 
 ;Quest property DTCampUpdateQuest auto
 ReferenceAlias property DTECPlayerAlias auto
@@ -90,6 +91,7 @@ Message property DTEC_AllEnabledMsg auto
 Message property DTEC_ErrorQuestStopMsg auto
 Message property DTEC_PerkAdvanceErrorMsg auto
 Message property DTEC_ArmorNoProgMsg auto
+Message property DTEC_ArmorBadMsg auto
 
 ;FormList property DTEC_CampHeatSource_EmbersFL auto
 FormList property DTEC_CampHeatSource_MediumFL auto
@@ -117,7 +119,7 @@ int property PerkAdvanceErrorCount auto hidden
 float property PointsPerSleep = 0.0714 autoReadOnly hidden
 ; not used-- divide evenly with perSleep if used
 float property PointsPerTentWarm = 0.0001 autoReadOnly hidden 
-float property PointsPerUnarmCombat = 0.008925 autoReadOnly hidden ;0.0054 autoReadOnly hidden
+float property PointsPerUnarmCombat = 0.01087 autoReadOnly hidden ;0.0054 autoReadOnly hidden
 string property myScriptName = "[DTEC_MainShelterQuest]" autoReadOnly hidden
 
 ; ************* private vars **********
@@ -291,7 +293,23 @@ Function AddTentToWarmList()
 	endIf
 endFunction
 
-Function ApplyPlayerPerkPoints(float perkPoints, bool skipChecks = false, bool showAltMsg = false)
+; only for upgrade from older version to grant back points (v1.20)
+;
+Function ApplyPlayerPerkPointsUpgrade()
+
+	if (checkInit == 1 && FreePerkPoints < 2 && DTEC_PerkPointsEarned.GetValueInt() < 10)
+		checkInit = 3
+		float combatCount = DTEC_UnarmoredCombatTotal.GetValue()
+		if (combatCount > 201.0)
+			FreePerkPoints += 1
+			int points = 1 + DTEC_PerkPoints.GetValueInt()
+			DTEC_PerkPoints.SetValueInt(points)
+			DTEC_PerkAdvanceMsg.Show()
+		endIf
+	endIf
+endFunction
+
+bool Function ApplyPlayerPerkPoints(float perkPoints, bool skipChecks = false, bool showAltMsg = false)
 	int currentPointsEarned = DTEC_PerkPointsEarned.GetValueInt()
 	int totalPoints = DTEC_PerkPointsTotal.GetValueInt()
 		
@@ -313,7 +331,7 @@ Function ApplyPlayerPerkPoints(float perkPoints, bool skipChecks = false, bool s
 			float pointsFromSleep = DTEC_WarmRestTotal.GetValue() * PointsPerSleep
 			float pointsFromCombat = DTEC_UnarmoredCombatTotal.GetValue() * PointsPerUnarmCombat
 			float totalPointsCheck = pointsFromCombat + pointsFromSleep
-			if (FreePerkPoints < 3)
+			if (FreePerkPoints > 0 && FreePerkPoints < 3)
 				totalPointsCheck += FreePerkPoints
 			endIf
 		
@@ -363,17 +381,31 @@ Function ApplyPlayerPerkPoints(float perkPoints, bool skipChecks = false, bool s
 		endIf
 		
 		DTEC_PerkPointProgress.SetValue(perkProgress)
+		
+		return true
 	endIf
+	
+	return false
 endFunction
 
 Function ApplyPlayerPerkPointsSleep(float sleepHours)
 	if (CurrentWarmTent && sleepHours >= 7.0)
-		if (IsPlayerInArmor())
+		int noArmorVal = IsPlayerInArmor()
+		if (noArmorVal > 1)
+
 			DTEC_ArmorNoProgMsg.Show()
 		else
+			
 			int totalRests = DTEC_WarmRestTotal.GetValueInt()
 			totalRests += 1
 			float perkPoints = PointsPerSleep
+			if (perkPoints > 0.080)
+				perkPoints = 0.080
+			endIf
+			if (noArmorVal == 1)
+				DTEC_ArmorBadMsg.Show()
+				Utility.Wait(0.5)
+			endIf
 			if (DTEC_PerkPointsEarned.GetValueInt() == 0)
 				; double to reach first perk quicker
 				perkPoints += PointsPerSleep
@@ -392,31 +424,36 @@ Function ApplyPlayerPerkPointsUnarmedCombat(bool hitInCombat, bool getBonus = fa
 	float lastCombatTime = DTEC_LastCombatPerkTime.GetValue()
 	float currentTime = Utility.GetCurrentGameTime()
 	float hoursSinceLastCombat = DTEC_CommonF.GetGameTimeHoursDifference(currentTime, lastCombatTime)
-	float minHourLim = 1.802 ; 6 min real-time
+	float minHourLim = 1.333 
 	if (hitInCombat || getBonus)
-		minHourLim = 0.901
+		minHourLim = 0.580
 	endIf
 	float timeLim = Utility.RandomFloat(minHourLim, (minHourLim + 0.67))
 	
-	; eligible to gain about every 2/1 game-hours / 6.67 real-time minutes
+	; eligible to gain
 	if (hoursSinceLastCombat > timeLim)
 		float perkPoints = PointsPerUnarmCombat
+		if (perkPoints > 0.020)
+			perkPoints = 0.020
+		endIf
 		int totalPerkCombats = DTEC_UnarmoredCombatTotal.GetValueInt()
 		int combatCount = 1
 		totalPerkCombats += combatCount
 		if (getBonus)
-			perkPoints += PointsPerUnarmCombat
+			perkPoints += perkPoints
 			totalPerkCombats += 1
 		endIf
-		if (DTEC_PerkPointsEarned.GetValueInt() == 0)
+		if (DTEC_PerkPointsEarned.GetValueInt() == 0 && PointsPerUnarmCombat < 0.020)
 			; extra to reach first perk quicker
 			perkPoints += PointsPerUnarmCombat
 			totalPerkCombats += 1
 		endIf
-		DTEC_UnarmoredCombatTotal.SetValueInt(totalPerkCombats)
+		if (ApplyPlayerPerkPoints(perkPoints, false, getBonus))
+			; only keep counting if still earning
+			DTEC_UnarmoredCombatTotal.SetValueInt(totalPerkCombats)
+		endIf
 		DTEC_LastCombatPerkTime.SetValue(currentTime)
 		;Debug.Trace(myScriptName + " ApplyPerks - unarmed, no-armor combat")
-		ApplyPlayerPerkPoints(perkPoints, false, getBonus)
 	endIf
 endFunction
 
@@ -547,7 +584,7 @@ Function CheckToGrantFreePerkPoints()
 	if (PlayerRef.GetLevel() >= 19 && DTEC_PerkPointsEarned.GetValueInt() == 0 && DTEC_PerkPointProgress.GetValue() == 0.0)
 		FreePerkPoints = 1
 		DTEC_PerkRank_Craft.SetValueInt(1)
-		if (PlayerRef.GetLevel() > 47)
+		if (PlayerRef.GetLevel() > 40)
 			FreePerkPoints = 2
 			DTEC_PerkPoints.SetValueInt(1)
 		endIf
@@ -661,7 +698,7 @@ Function HandleOnUpdate()
 	
 	if (PlayerRef.IsInCombat())
 		; skip shelter check and watch for combat bonus
-		if (IsPlayerInArmor())
+		if (IsPlayerInArmor() > 1)
 			unarmoredCombatRoundsCount = 0
 			playerTookHitCount = 0
 		else
@@ -677,7 +714,8 @@ Function HandleOnUpdate()
 	else
 		; player should survive a minute (18-minute fight) or get hit
 		bool unarmAward = false
-		if (unarmoredCombatRoundsCount > 0 && IsPlayerInArmor())
+		int isArmorVal = IsPlayerInArmor()
+		if (unarmoredCombatRoundsCount > 0 && isArmorVal > 1)
 			; final check fail - player put on armor near end of combat
 			unarmoredCombatRoundsCount = 0
 		endIf
@@ -685,6 +723,13 @@ Function HandleOnUpdate()
 		if (unarmCombatRounds >= 4)
 			unarmAward = true
 		endIf
+		
+		if (unarmoredCombatRoundsCount > 0 && isArmorVal == 1)
+			; warn player -- appears like armor
+			DTEC_ArmorBadMsg.Show()
+			Utility.Wait(0.5)
+		endIf
+		
 		if (unarmoredCombatRoundsCount >= 15)
 			; grant bonus for long combat
 			ApplyPlayerPerkPointsUnarmedCombat(false, true)
@@ -739,7 +784,7 @@ bool Function IsPlayerAllowedRestBonus(float hoursSleep)
 	
 	if (DTEC_PerkRank_SleepPro.GetValueInt() >= 1)
 		return true
-	elseIf (IsPlayerInArmor())
+	elseIf (IsPlayerInArmor() > 0)
 		return false
 	elseIf (DTEC_PerkRank_SleepBasic.GetValueInt() >= 1)
 		if (IsTentOwned(CurrentWarmTent))
@@ -754,19 +799,26 @@ bool Function IsPlayerAllowedRestBonus(float hoursSleep)
 	return false
 endFunction
 
-bool Function IsPlayerInArmor()
+int Function IsPlayerInArmor()
+	
 	if (PlayerRef.WornHasKeyword(ArmorLightKY) || PlayerRef.WornHasKeyword(ArmorHeavyKY))
-		if (PlayerRef.GetActorValue("DamageResist") == 0.0)
-			;Debug.Trace(myScriptName + " IsPlayerInArmor - has armor keywords, but zero damage-resist total -- return false")
-			return false
+		float totalAC = PlayerRef.GetActorValue("DamageResist")
+		if (totalAC == 0.0)
+			return 1
 		endIf
-		return true
+		if (totalAC == 50.0 && PlayerRef.HasMagicEffect(doomLordDamageEffect))
+			return 1
+		endIf
+		
+		return 2
 	endIf
+	
 	if (PlayerRef.HasMagicEffectWithKeyword(MagicArmorSpellKY))
 		;Debug.Trace(myScriptName + " IsPlayerInArmor - has magic armor KY")
-		return true
+		return 3
 	endIf
-	return false
+	
+	return 0
 endFunction
 
 bool Function IsPlayerUnarmed()
@@ -938,7 +990,7 @@ Function StartAll()
 		if (checkInit < 1)
 			CheckToGrantFreePerkPoints()
 			CheckArmor()
-			checkInit = 1
+			checkInit = 2
 		endIf
 		DTEC_AllEnabledMsg.Show()
 	else

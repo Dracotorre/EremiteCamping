@@ -56,7 +56,6 @@ Event OnUpdate()
 	endIf
 EndEvent
 
-
 ; multiple hits will register if weapon enchanted or spell has multiple effects
 ; https://www.creationkit.com/index.php?title=OnHit_-_ObjectReference
 ;
@@ -80,6 +79,11 @@ Function MaintainMod()
 			endIf
 		elseIf (oldV == 1.0 && (DTEC_MainShelterQuestP as DTEC_MainShelterQuestScript).CampDataInitialized == false)
 			(DTEC_MainShelterQuestP as DTEC_MainShelterQuestScript).CheckArmor()
+		endIf
+		
+		if (oldV < 1.20)
+			Utility.Wait(0.33)
+			(DTEC_MainShelterQuestP as DTEC_MainShelterQuestScript).ApplyPlayerPerkPointsUpgrade()
 		endIf
 		
 		DTEC_PrevVersion.SetValue(currentV)
