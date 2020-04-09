@@ -43,7 +43,7 @@ Event OnActivate(ObjectReference akActionRef)
 				elseIf (DTEC_IsFrostfallActive.GetValueInt() > 0)
 					If (DTEC_CommonF.GetFrostfallRunningValue() == 2)
 						; is warm enough?
-						
+						;Debug.Trace("[DTEC campNPC bed] check Frostfall")
 						okUndress = FrostUtil.IsWarmEnoughToRemoveGearInTent()
 
 						;if (!okUndress)
@@ -84,10 +84,11 @@ Event OnUpdate()
 endEvent
 
 Function RedressActor(Actor actRef)
-	if (actRef)
+	if (actRef != None)
 		actRef.AddItem(DTEC_DummyRing, 1, true)
 		actRef.EquipItem(DTEC_DummyRing, true)
 		actRef.UnEquipItem(DTEC_DummyRing, true)
-		actRef.RemoveItem(DTEC_DummyRing, 1, true)
+		int ringCount = actRef.GetItemCount(DTEC_DummyRing)
+		actRef.RemoveItem(DTEC_DummyRing, ringCount, true)
 	endIf
 endFunction

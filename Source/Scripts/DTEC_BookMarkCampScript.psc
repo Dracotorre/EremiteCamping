@@ -1,6 +1,11 @@
 Scriptname DTEC_BookMarkCampScript extends ObjectReference  
 
+; ********************************
+; book mark campsite for
+; Eremite Camping Skyrim mod 
 ; by DracoTorre
+; web page: http://www.dracotorre.com/mods/eremitecamping/
+; https://github.com/Dracotorre/EremiteCamping
 ; requires Campfire DevKit CampUtil 
 ;
 ; best results when player inside tent or sitting on bed-roll checked using CampUtil.GetCurrentTent()

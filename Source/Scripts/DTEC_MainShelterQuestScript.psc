@@ -1,11 +1,16 @@
 Scriptname DTEC_MainShelterQuestScript extends Quest  
 
 ; by DracoTorre
-; v1.20
+; version 2
 ; web page: http://www.dracotorre.com/mods/eremitecamping/
+; https://github.com/Dracotorre/EremiteCamping
 ;
 ; EremiteCamping.esp - MainShelterQuest - Do not stop this quest!
 ;
+; ----------------- notes
+;  spellmaking??
+;
+; ------------
 ; Detects Campfire tents and base-game tents for warm sleep bonus
 ; if in Survival Mode then tent extends warmth from heat source
 ; Monitor no-armor combat for perk bonus.
@@ -41,6 +46,7 @@ MagicEffect property doomLordDamageEffect auto
 
 ;Quest property DTCampUpdateQuest auto
 ReferenceAlias property DTECPlayerAlias auto
+Quest property DTEC_MagicFocusQuest auto
 
 GlobalVariable property DTEC_InitCampData auto
 GlobalVariable property DTEC_CampfireUpdated auto
@@ -68,6 +74,7 @@ GlobalVariable property DTEC_PerkRank_Unarmored auto
 GlobalVariable property DTEC_PerkRank_Pugalist auto
 GlobalVariable property DTEC_PerkRank_Craft auto
 GlobalVariable property DTEC_ErrorQuestStopShown auto
+GlobalVariable property DTEC_FocusTotal auto			; v2
 
 ; settings
 GlobalVariable property DTEC_SettingExistingTentsWarm auto
@@ -77,6 +84,13 @@ GlobalVariable property DTEC_SettingEnabled auto
 Spell property DTEC_DamageResistAbility auto
 Spell property DTEC_UnarmedDamageAbility auto
 Spell property DTEC_RefreshedRegen auto
+Spell property DTEC_FocusSpellAb auto			; v2 no-armor bonus
+Spell property DTEC_FocusSpellAbBrawl auto		; v2 unarmed damage bonus
+Spell property DTEC_FocusSpellAbArchery auto	; v2
+Spell property DTEC_FocusSpellAbMagicka auto	; v2
+Spell property DTEC_FocusSpellAbOneHand auto	; v2
+Spell property DTEC_FocusSpellAbTwoHand auto	; v2
+Spell property DTEC_FocusSpellExpired auto 		; v2 removes focus spells
 
 Message property DTEC_MonitorEnabledMsg auto
 Message property DTEC_MonitorDisabledMsg auto
@@ -92,6 +106,11 @@ Message property DTEC_ErrorQuestStopMsg auto
 Message property DTEC_PerkAdvanceErrorMsg auto
 Message property DTEC_ArmorNoProgMsg auto
 Message property DTEC_ArmorBadMsg auto
+Message property DTEC_HasMeditatedMessage auto		;v2
+Message property DTEC_WarnMagicArmorInHandMsg auto 	;v2 reminder
+Message property DTEC_WarnMagicArmorMessage auto 	;v2 reminder
+Message property DTEC_ColdMessage auto 				;v2
+Message property DTEC_MeditateEndMessage auto 		;v2
 
 ;FormList property DTEC_CampHeatSource_EmbersFL auto
 FormList property DTEC_CampHeatSource_MediumFL auto
@@ -103,6 +122,8 @@ Keyword property IsCampfireTentWarmKW auto
 Keyword property IsCampfireTentNoShelterKW auto
 Keyword property IsCampfireTentWaterProofKW auto
 FormList property DTEC_ModTentShelterList auto
+FormList property DTEC_ArmoredBadSpellList auto		; v2 known spells equipped to cause magic armor keyword
+FormList property DTEC_SpellsRemOnExpiredList auto	; v2 spells we want to remove end of meditate period
 
 ; ------------- hidden 
 
@@ -112,6 +133,7 @@ FormList property SurvivalWarmList auto hidden
 int property FreePerkPoints auto hidden 
 bool property CampDataInitialized auto hidden
 int property PerkAdvanceErrorCount auto hidden
+float property LastFocusTime auto hidden
 
 ; goal maximizing points per day: 0.1156 or perk point every 9 game-days
 ; if player chooses to fight in armor then perk gain every 14 game-days
@@ -119,7 +141,8 @@ int property PerkAdvanceErrorCount auto hidden
 float property PointsPerSleep = 0.0714 autoReadOnly hidden
 ; not used-- divide evenly with perSleep if used
 float property PointsPerTentWarm = 0.0001 autoReadOnly hidden 
-float property PointsPerUnarmCombat = 0.01087 autoReadOnly hidden ;0.0054 autoReadOnly hidden
+float property PointsPerUnarmCombat = 0.01087 autoReadOnly hidden ; -- old value: 0.0054
+float property PointsPerMeditate = 0.030 autoReadOnly hidden
 string property myScriptName = "[DTEC_MainShelterQuest]" autoReadOnly hidden
 
 ; ************* private vars **********
@@ -132,6 +155,7 @@ int checkInit = 0
 int unarmoredCombatRoundsCount
 int unarmCombatRounds
 int playerTookHitCount
+int updateGameTimeType = 0
 float sleepStartTime
 float sleepLastStopTime
 float updateWaitSeconds
@@ -174,6 +198,21 @@ Event OnUpdate()
 		endIf
 	elseIf (DTEC_SettingEnabled.GetValueInt() == -1)
 		StartAll()
+	endIf
+endEvent
+
+Event OnUpdateGameTime()	
+	if (updateGameTimeType == 2)
+		if (DTEC_NotificationEnabled.GetValueInt() > 0)
+			DTEC_MeditateEndMessage.Show()
+		endIf
+		updateGameTimeType = 0
+		PlayerRef.RemoveSpell(DTEC_FocusSpellAb)
+		RemSpellOnExpired()
+		
+		DTEC_FocusSpellExpired.Cast(PlayerRef, PlayerRef)			; clear focus spells
+	else
+		Debug.Notification("Eremite focus not removed!!")
 	endIf
 endEvent
 
@@ -237,40 +276,43 @@ EndEvent
 
 Function AddRefreshToPlayer()
 	isRefreshed = false
-	;Debug.Trace(myScriptName + " player refreshed sleeping in sheltered tent")
-	if (!PlayerRef.HasSpell(DTEC_RefreshedRegen))
-		PlayerRef.AddSpell(DTEC_RefreshedRegen, false)
-		
-		if (DTEC_CampfireUpdated)
-			Spell drainSpell = DTEC_CommonF.GetSurvivalDrainedSpell()
-			Spell tiredSpell = DTEC_CommonF.GetSurvivalTiredSpell()
-			Spell refreshSpell = DTEC_CommonF.GetSurvivalRefreshedSpell()
-			if (drainSpell && PlayerRef.HasSpell(drainSpell))
-				;Debug.Trace(myScriptName + " replace Drain spell with Refresh...")
-				if (refreshSpell)
-					PlayerRef.RemoveSpell(drainSpell)
-					PlayerRef.AddSpell(refreshSpell, false)
-				endIf
-			elseIf (tiredSpell && PlayerRef.HasSpell(tiredSpell))
-				;Debug.Trace(myScriptName + " replace Tired spell with Refresh...")
-				if (refreshSpell)
-					PlayerRef.RemoveSpell(tiredSpell)
-					PlayerRef.AddSpell(refreshSpell, false)
+	if (DTEC_SettingEnabled.GetValue() >= 1.0)
+		;Debug.Trace(myScriptName + " player refreshed sleeping in sheltered tent")
+		if (!PlayerRef.HasSpell(DTEC_RefreshedRegen))
+			PlayerRef.AddSpell(DTEC_RefreshedRegen, false)
+			
+			if (DTEC_CampfireUpdated.GetValueInt() >= 1)
+				Spell drainSpell = DTEC_CommonF.GetSurvivalDrainedSpell()
+				Spell tiredSpell = DTEC_CommonF.GetSurvivalTiredSpell()
+				Spell refreshSpell = DTEC_CommonF.GetSurvivalRefreshedSpell()
+				if (drainSpell != None && PlayerRef.HasSpell(drainSpell))
+					;Debug.Trace(myScriptName + " replace Drain spell with Refresh...")
+					if (refreshSpell != None)
+						PlayerRef.RemoveSpell(drainSpell)
+						PlayerRef.AddSpell(refreshSpell, false)
+					endIf
+				elseIf (tiredSpell != None && PlayerRef.HasSpell(tiredSpell))
+					;Debug.Trace(myScriptName + " replace Tired spell with Refresh...")
+					if (refreshSpell != None)
+						PlayerRef.RemoveSpell(tiredSpell)
+						PlayerRef.AddSpell(refreshSpell, false)
+					endIf
 				endIf
 			endIf
+			DTEC_RefreshMsg.Show()
 		endIf
-		DTEC_RefreshMsg.Show()
 	endIf
-	
 endFunction
 
 ; same conditions found in Ordinator 
 Function AddOrdinatorVancianToPlayer()
-	Perk vancianPerk = DTEC_CommonF.GetOrdinatorVancianPerk()
-	if (vancianPerk && !PlayerRef.HasPerk(vancianPerk) && PlayerRef.GetBaseActorValue("Alteration") >= 30)
-		Perk altMaster = DTEC_CommonF.GetOrdinatorAltMasteryPerk()
-		if (altMaster && PlayerRef.HasPerk(altMaster))
-			PlayerRef.AddPerk(vancianPerk)
+	if (DTEC_SettingEnabled.GetValue() >= 1.0)
+		Perk vancianPerk = DTEC_CommonF.GetOrdinatorVancianPerk()
+		if (vancianPerk && !PlayerRef.HasPerk(vancianPerk) && PlayerRef.GetBaseActorValue("Alteration") >= 30)
+			Perk altMaster = DTEC_CommonF.GetOrdinatorAltMasteryPerk()
+			if (altMaster && PlayerRef.HasPerk(altMaster))
+				PlayerRef.AddPerk(vancianPerk)
+			endIf
 		endIf
 	endIf
 endFunction
@@ -296,7 +338,6 @@ endFunction
 ; only for upgrade from older version to grant back points (v1.20)
 ;
 Function ApplyPlayerPerkPointsUpgrade()
-
 	if (checkInit == 1 && FreePerkPoints < 2 && DTEC_PerkPointsEarned.GetValueInt() < 10)
 		checkInit = 3
 		float combatCount = DTEC_UnarmoredCombatTotal.GetValue()
@@ -330,7 +371,8 @@ bool Function ApplyPlayerPerkPoints(float perkPoints, bool skipChecks = false, b
 			; error / cheating check 2
 			float pointsFromSleep = DTEC_WarmRestTotal.GetValue() * PointsPerSleep
 			float pointsFromCombat = DTEC_UnarmoredCombatTotal.GetValue() * PointsPerUnarmCombat
-			float totalPointsCheck = pointsFromCombat + pointsFromSleep
+			float pointsFromMeditate = DTEC_FocusTotal.GetValue() * PointsPerMeditate
+			float totalPointsCheck = pointsFromCombat + pointsFromSleep + pointsFromMeditate
 			if (FreePerkPoints > 0 && FreePerkPoints < 3)
 				totalPointsCheck += FreePerkPoints
 			endIf
@@ -388,32 +430,168 @@ bool Function ApplyPlayerPerkPoints(float perkPoints, bool skipChecks = false, b
 	return false
 endFunction
 
-Function ApplyPlayerPerkPointsSleep(float sleepHours)
-	if (CurrentWarmTent && sleepHours >= 7.0)
-		int noArmorVal = IsPlayerInArmor()
+;
+; v2: meditation for combat or magic
+; rugType 0 for combat, 1 for magic
+;
+Function ApplyPlayerPerkPointsMeditateAddSpell(int weaponType, int rugType = 0)
+	
+	if (DTEC_SettingEnabled.GetValue() >= 1.0)
+		int noArmorVal = IsPlayerInArmor(true)				; remove known bad spells
+		float currentTime = Utility.GetCurrentGameTime()
+		int currentDayNum = Math.Floor(currentTime)
+		int lastFocusDayNum = Math.Floor(LastFocusTime)
+		
+		if (PlayerRef.HasSpell(DTEC_FocusSpellAb))
+			if (currentDayNum > lastFocusDayNum)
+				; new day, clear
+				PlayerRef.RemoveSpell(DTEC_FocusSpellAb)
+			endIf
+		endIf
+			
 		if (noArmorVal > 1)
 
 			DTEC_ArmorNoProgMsg.Show()
+			if (noArmorVal >= 4)
+				Utility.Wait(1.0)
+				DTEC_WarnMagicArmorInHandMsg.Show()
+			endIf
+			
+		elseIf (PlayerRef.HasSpell(DTEC_FocusSpellAb))
+			
+			; has spell, remind player - but no refund
+			if (rugType == 1)
+				(DTEC_MagicFocusQuest as DTEC_MagicFocusQuestScript).PublicStopAll()
+			endIf
+			DTEC_HasMeditatedMessage.Show()
 		else
+			; no spell
+			int chooseToContinue = 100			; player may choose combat or magic
+			; likely longer than 8 hours, but in case spell removed sooner
+			float hoursSinceLastFocus = DTEC_CommonF.GetGameTimeHoursDifference(LastFocusTime, currentTime)
+					
+			if (hoursSinceLastFocus > 8.0)
+				; limited by hours
+				
+				if (rugType == 1)
+					; magic rug
+					if (!DTEC_MagicFocusQuest.IsRunning())
+						DTEC_MagicFocusQuest.Start()
+					endIf
+					Utility.Wait(1.2)
+					
+					; may be negative if player fails to meet requirements
+					chooseToContinue = (DTEC_MagicFocusQuest as DTEC_MagicFocusQuestScript).PublicStartFocus()
+				endIf
+				
+				if (chooseToContinue >= 0)
+					; player meets requirements
+					; add no-armor bonus spell
+					PlayerRef.AddSpell(DTEC_FocusSpellAb)
+					
+					updateGameTimeType = 2
+					RegisterForSingleUpdateGameTime(8.0)
+				endIf
+				
+				if (rugType == 1 && chooseToContinue > 0 && chooseToContinue < 100)
+					; magic
+					LastFocusTime = currentTime				; update
+					Utility.Wait(1.5)
+					(DTEC_MagicFocusQuest as DTEC_MagicFocusQuestScript).PublicAddSpellsToPlayer()
+					
+				elseIf (chooseToContinue == 100 || chooseToContinue == 0)
+				
+					; combat skills 
+					LastFocusTime = currentTime				; update
+					
+					if (weaponType >= 1 && weaponType <= 4)
+						; one-hand
+						PlayerRef.AddSpell(DTEC_FocusSpellAbOneHand)
+					elseIf (weaponType >= 5 && weaponType <= 6)
+						; two-hand
+						PlayerRef.AddSpell(DTEC_FocusSpellAbTwoHand)
+						
+					elseIf (weaponType == 7 || weaponType == 12)
+						PlayerRef.AddSpell(DTEC_FocusSpellAbArchery)
+						
+					elseIf (weaponType == 8)
+						; staff
+						PlayerRef.AddSpell(DTEC_FocusSpellAbMagicka)
+					else
+						PlayerRef.AddSpell(DTEC_FocusSpellAbBrawl)
+					endIf
+				
+				endIf
+			else
+				; has meditated by time limit
+				chooseToContinue = -2
+				
+				DTEC_HasMeditatedMessage.Show()
+			endIf
 			
-			int totalRests = DTEC_WarmRestTotal.GetValueInt()
-			totalRests += 1
-			float perkPoints = PointsPerSleep
-			if (perkPoints > 0.080)
-				perkPoints = 0.080
+			; check perk progress
+			if (chooseToContinue >= 0 && chooseToContinue <= 100 && currentDayNum > lastFocusDayNum)
+				; advanced limited to once per day
+				int totalMed = DTEC_FocusTotal.GetValueInt()
+				totalMed += 1
+					
+				float perkPoints = PointsPerMeditate
+				if (perkPoints > 0.050)
+					perkPoints = 0.050
+				endIf
+				if (noArmorVal == 1)
+					DTEC_ArmorBadMsg.Show()				; reminder detected armor keywords but no armor rating
+					Utility.Wait(0.5)
+				endIf
+				if (DTEC_PerkPointsEarned.GetValueInt() == 0)
+					; double to reach first perk quicker
+					perkPoints += PointsPerMeditate
+					totalMed += 1		; double the count for error check
+				endIf
+					
+				if (totalMed < 9000)
+					DTEC_FocusTotal.SetValueInt(totalMed)
+				endIf
+					
+				ApplyPlayerPerkPoints(perkPoints, (PerkAdvanceErrorCount > 2), false)
 			endIf
-			if (noArmorVal == 1)
-				DTEC_ArmorBadMsg.Show()
-				Utility.Wait(0.5)
-			endIf
-			if (DTEC_PerkPointsEarned.GetValueInt() == 0)
-				; double to reach first perk quicker
-				perkPoints += PointsPerSleep
-				totalRests += 1		; double the count for error check
-			endIf
-			DTEC_WarmRestTotal.SetValueInt(totalRests)
 			
-			ApplyPlayerPerkPoints(perkPoints, (PerkAdvanceErrorCount > 2), false)
+			if (rugType == 1)
+				(DTEC_MagicFocusQuest as DTEC_MagicFocusQuestScript).PublicStopAll()
+			endIf
+		endIf
+	endIf
+
+endFunction
+
+Function ApplyPlayerPerkPointsSleep(float sleepHours)
+	if (DTEC_SettingEnabled.GetValue() >= 1.0)
+		if (CurrentWarmTent && sleepHours >= 7.0)
+			int noArmorVal = IsPlayerInArmor()
+			if (noArmorVal > 1)
+
+				DTEC_ArmorNoProgMsg.Show()
+			else
+				
+				int totalRests = DTEC_WarmRestTotal.GetValueInt()
+				totalRests += 1
+				float perkPoints = PointsPerSleep
+				if (perkPoints > 0.080)
+					perkPoints = 0.080
+				endIf
+				if (noArmorVal == 1)
+					DTEC_ArmorBadMsg.Show()
+					Utility.Wait(0.5)
+				endIf
+				if (DTEC_PerkPointsEarned.GetValueInt() == 0)
+					; double to reach first perk quicker
+					perkPoints += PointsPerSleep
+					totalRests += 1		; double the count for error check
+				endIf
+				DTEC_WarmRestTotal.SetValueInt(totalRests)
+				
+				ApplyPlayerPerkPoints(perkPoints, (PerkAdvanceErrorCount > 2), false)
+			endIf
 		endIf
 	endIf
 endFunction
@@ -714,20 +892,24 @@ Function HandleOnUpdate()
 	else
 		; player should survive a minute (18-minute fight) or get hit
 		bool unarmAward = false
-		int isArmorVal = IsPlayerInArmor()
-		if (unarmoredCombatRoundsCount > 0 && isArmorVal > 1)
-			; final check fail - player put on armor near end of combat
-			unarmoredCombatRoundsCount = 0
+ 
+		if (unarmoredCombatRoundsCount > 0)
+			if (IsPlayerInArmor() > 1)
+				; final check fail - player put on armor near end of combat
+				unarmoredCombatRoundsCount = 0
+			endIf
 		endIf
 		
 		if (unarmCombatRounds >= 4)
 			unarmAward = true
 		endIf
 		
-		if (unarmoredCombatRoundsCount > 0 && isArmorVal == 1)
-			; warn player -- appears like armor
-			DTEC_ArmorBadMsg.Show()
-			Utility.Wait(0.5)
+		if (unarmoredCombatRoundsCount > 0)
+			if (IsPlayerInArmor() > 1)
+				; warn player -- appears like armor
+				DTEC_ArmorBadMsg.Show()
+				Utility.Wait(0.5)
+			endIf
 		endIf
 		
 		if (unarmoredCombatRoundsCount >= 15)
@@ -799,26 +981,59 @@ bool Function IsPlayerAllowedRestBonus(float hoursSleep)
 	return false
 endFunction
 
-int Function IsPlayerInArmor()
+; returns 0 for no, 2=yes, 3=magic, 4=magicEquipped
+int Function IsPlayerInArmor(bool removeBadSpells = false)
 	
 	if (PlayerRef.WornHasKeyword(ArmorLightKY) || PlayerRef.WornHasKeyword(ArmorHeavyKY))
-		float totalAC = PlayerRef.GetActorValue("DamageResist")
-		if (totalAC == 0.0)
+		if (PlayerArmorRatingZero())
 			return 1
 		endIf
-		if (totalAC == 50.0 && PlayerRef.HasMagicEffect(doomLordDamageEffect))
-			return 1
-		endIf
-		
 		return 2
 	endIf
 	
+	if (removeBadSpells)
+		PlayerCheckRemoveBadSpells()
+	endIf
+	
 	if (PlayerRef.HasMagicEffectWithKeyword(MagicArmorSpellKY))
+		; !! having an armor spell equipped may cause this
 		;Debug.Trace(myScriptName + " IsPlayerInArmor - has magic armor KY")
+		if (PlayerArmorRatingZero())
+			return 4
+		endIf
 		return 3
 	endIf
 	
 	return 0
+endFunction
+
+bool Function IsPlayerWarm(bool coldOkay = false, bool displayColdMessage = true)
+	bool result = true
+	
+	if (DTEC_IsFrostfallActive.GetValueInt() >= 1 && DTEC_CommonF.GetFrostfallRunningValue() >= 2)
+		; http://skyrimsurvival.com/home/frostfall/mod-developers/frostutil-api/#FrostUtil_GetPlayerExposure
+		; 1 is comfortable, 0 is warm
+		int limit = 2			; cold 
+		if (coldOkay)
+			limit = 3			; very cold
+		endIf
+		if (DTEC_PerkRank_SleepPro.GetValueInt() >= 1)
+			limit += 1
+		endIf
+		int exposureLevel = FrostUtil.GetPlayerExposureLevel()
+		if (exposureLevel >= limit)
+			result = false
+		endIf
+	; TODO: Survival - could check for cold stage effects
+		
+	endIf
+	
+	if (!result && displayColdMessage)
+		; display a message!!
+		DTEC_ColdMessage.Show()
+	endIf
+	
+	return result
 endFunction
 
 bool Function IsPlayerUnarmed()
@@ -919,6 +1134,37 @@ bool Function IsTentWarm(ObjectReference tentRef)
 	return heatSource as bool
 endFunction
 
+bool Function PlayerArmorRatingZero()
+
+	float totalAC = PlayerRef.GetActorValue("DamageResist")
+	if (totalAC == 0.0)
+		return true
+	endIf
+	if (totalAC == 50.0 && PlayerRef.HasMagicEffect(doomLordDamageEffect))
+		return true
+	endIf
+
+	return false
+endFunction
+
+Function PlayerCheckRemoveBadSpells()
+	; these spells equipped in hand known to add MagicArmorSpellKY
+	int weaponType = PlayerRef.GetEquippedItemType(1)
+	if (weaponType == 9)
+		Spell mainSpellEquipped = playerRef.GetEquippedSpell(1)
+		if (DTEC_ArmoredBadSpellList.HasForm(mainSpellEquipped as Form))
+			PlayerRef.UnequipSpell(mainSpellEquipped, 1)
+		endIf
+	endIf
+	weaponType = PlayerRef.GetEquippedItemType(0)
+	if (weaponType == 9)
+		Spell secondSpellEquipped = playerRef.GetEquippedSpell(0)
+		if (DTEC_ArmoredBadSpellList.HasForm(secondSpellEquipped as Form))
+			PlayerRef.UnequipSpell(secondSpellEquipped, 0)
+		endIf
+	endIf
+endFunction
+
 Function PlayerEnteredTent(ObjectReference tentRef)
 	;Debug.Trace(myScriptName + " player entered warm tent " + tentRef)
 	CurrentWarmTent = tentRef
@@ -930,6 +1176,18 @@ Function PlayerEnteredTent(ObjectReference tentRef)
 		DTEC_WarmBedrollMsg.Show()
 	else
 		DTEC_WarmTentMsg.Show()
+	endIf
+	; v2 - check for magic armor reminders
+	int armVal = IsPlayerInArmor(true)			; remove known bad spells
+	if (armVal > 0)
+		Utility.Wait(1.0)
+		if (armVal >= 3)
+			if (armVal >= 4)
+				DTEC_WarnMagicArmorInHandMsg.Show()
+			else
+				DTEC_WarnMagicArmorMessage.Show()
+			endIf
+		endIf
 	endIf
 	
 endFunction
@@ -952,6 +1210,16 @@ Function PlayerHitBy(ObjectReference akAggressor, Form akSource, Projectile akPr
 	endIf
 endFunction
 
+;
+;  player stopped before meditation begins
+;
+Function PlayerCanceledMeditation(int rugType)
+	if (rugType == 1)
+
+		(DTEC_MagicFocusQuest as DTEC_MagicFocusQuestScript).PublicStopAll()
+	endIf
+endFunction
+
 Function RemoveTentFromWarmList()
 	if (CurrentWarmTent)
 		if (SurvivalWarmList && SurvivalWarmList.HasForm(CurrentWarmTent.GetBaseObject()))
@@ -962,13 +1230,20 @@ Function RemoveTentFromWarmList()
 		else
 			Debug.Trace(myScriptName + " no tent to remove! " + CurrentWarmTent)
 		endIf
-		if (DTEC_IsFrostfallActive.GetValueInt() >= 1)
-			if (DTEC_CommonF.GetFrostfallRunningValue() == 2)
-				; restore previous bump warmth
-				FrostUtil.ModPlayerExposure(10.0)
-			endIf
-		endIf
 	endIf
+endFunction
+
+Function RemSpellOnExpired()
+	int i = 0
+	int len = DTEC_SpellsRemOnExpiredList.GetSize()
+	while (i < len)
+		Spell aRemSpell = DTEC_SpellsRemOnExpiredList.GetAt(i) as Spell
+		if (aRemSpell != None && PlayerRef.HasSpell(aRemSpell))
+			PlayerRef.RemoveSpell(aRemSpell)
+		endIf
+		
+		i += 1
+	endWhile
 endFunction
 
 Function StartAll()
@@ -1012,6 +1287,9 @@ Function StopAll()
 	endIf
 	if (PlayerRef.HasSpell(DTEC_DamageResistAbility))
 		PlayerRef.RemoveSpell(DTEC_DamageResistAbility)
+	endIf
+	if (PlayerRef.HasSpell(DTEC_FocusSpellAb))
+		PlayerRef.RemoveSpell(DTEC_FocusSpellAb)
 	endIf
 
 	Utility.Wait(1.0)
