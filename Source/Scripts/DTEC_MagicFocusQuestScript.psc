@@ -153,9 +153,8 @@ int Function PublicAddSpellsToPlayer()
 			endIf
 		elseIf (MySchoolFocusChoice == 4)
 			; illusion
-			if (!PlayerRef.HasMagicEffect(DTEC_AnimalAllyEffect))
-				DTEC_AnimalAllyBlessSpell.Cast(PlayerRef, PlayerRef)
-			endIf
+			DTEC_AnimalAllyBlessSpell.Cast(PlayerRef, PlayerRef)
+
 		elseIf (MySchoolFocusChoice == 5)
 			; restoration
 			if (!PlayerRef.HasSpell(DTEC_RestoreHealthSpell))
@@ -218,9 +217,7 @@ Function PrepMenu()
 	
 	skillLevel = PlayerRef.GetActorValue("Illusion")
 	if (skillLevel >= 50.0)
-		if (!PlayerRef.HasMagicEffect(DTEC_AnimalAllyEffect))
-			DTEC_MFQNeedIllusion.SetValueInt(1)
-		endIf
+		DTEC_MFQNeedIllusion.SetValueInt(1)
 	endIf
 	
 	skillLevel = PlayerRef.GetActorValue("Restoration")

@@ -84,9 +84,11 @@ Event OnActivate(ObjectReference akActionRef)
 		Actor playerRef = Game.GetPlayer()
 
 		if (akActionRef == playerRef)
-			RugUseState = 1
-			RegisterForSingleUpdate(6.7)
-			GoStartView(playerRef)			; may change RugUseState
+			if (!playerRef.IsInCombat())		; Campfire stops use if in combat, so we must check
+				RugUseState = 1
+				RegisterForSingleUpdate(6.7)
+				GoStartView(playerRef)			; may change RugUseState
+			endIf
 		endif
 	elseIf (RugUseState >= -2)
 		; activated for exit furniture
@@ -296,6 +298,9 @@ Function PlaceMainWeapon(int weaponType)
 			zRot = -89.0
 			distance = 42.5
 			headingOffset = -6.0
+		elseIf (weaponType == 4)						; mace
+			distance = 42.5
+			zRot = -89.0
 		elseIf (weaponType >= 5 && weaponType <= 6)		; 2-hand
 			htAdj = 6.2
 		elseIf (weaponType == 8)						; staff
