@@ -150,6 +150,7 @@ string property myScriptName = "[DTEC_MainShelterQuest]" autoReadOnly hidden
 bool isEnabled = false
 bool isInTent = false
 bool isRefreshed = false
+bool IsFatigueRecovered = false
 int updateTentSearchCount = 0
 int checkInit = 0
 int unarmoredCombatRoundsCount
@@ -242,15 +243,11 @@ Event OnSleepStop(bool abInterrupted)
 			if (IsPlayerAllowedRestBonus(sleepHours))
 				isRefreshed = true
 				Utility.Wait(0.2)
-;			elseIf (sleepHours > 6.5 && DTEC_CampfireUpdated.GetValueInt() >= 1)
-;				Spell tiredSpell = DTEC_CommonF.GetSurvivalTiredSpell()
-;				if (tiredSpell && PlayerRef.HasSpell(tiredSpell))
-;					Spell drainSpell = DTEC_CommonF.GetSurvivalDrainedSpell()
-;					if (drainSpell)
-;						PlayerRef.RemoveSpell(tiredSpell)
-;						PlayerRef.AddSpell(drainSpell)
-;					endIf
-;				endIf
+				
+			; v2.1 let's allow a level of fatigue recovery for Survival without the perk
+			elseIf (sleepHours > 6.5 && DTEC_CampfireUpdated.GetValueInt() >= 1 && !PlayerRef.HasKeyword(ActorTypeCreature))
+				IsFatigueRecovered = true
+				Utility.Wait(0.2)
 			endIf
 		endIf
 		if (DTEC_PerkRank_Unarmored.GetValueInt() >= 1)
@@ -276,29 +273,16 @@ EndEvent
 
 Function AddRefreshToPlayer()
 	isRefreshed = false
+	IsFatigueRecovered = false
 	if (DTEC_SettingEnabled.GetValue() >= 1.0)
+	
+		if (DTEC_CampfireUpdated.GetValueInt() >= 1)
+				SurvivalRecoverFatigue(2)			; full recovery
+			endIf
 		;Debug.Trace(myScriptName + " player refreshed sleeping in sheltered tent")
 		if (!PlayerRef.HasSpell(DTEC_RefreshedRegen))
 			PlayerRef.AddSpell(DTEC_RefreshedRegen, false)
 			
-			if (DTEC_CampfireUpdated.GetValueInt() >= 1)
-				Spell drainSpell = DTEC_CommonF.GetSurvivalDrainedSpell()
-				Spell tiredSpell = DTEC_CommonF.GetSurvivalTiredSpell()
-				Spell refreshSpell = DTEC_CommonF.GetSurvivalRefreshedSpell()
-				if (drainSpell != None && PlayerRef.HasSpell(drainSpell))
-					;Debug.Trace(myScriptName + " replace Drain spell with Refresh...")
-					if (refreshSpell != None)
-						PlayerRef.RemoveSpell(drainSpell)
-						PlayerRef.AddSpell(refreshSpell, false)
-					endIf
-				elseIf (tiredSpell != None && PlayerRef.HasSpell(tiredSpell))
-					;Debug.Trace(myScriptName + " replace Tired spell with Refresh...")
-					if (refreshSpell != None)
-						PlayerRef.RemoveSpell(tiredSpell)
-						PlayerRef.AddSpell(refreshSpell, false)
-					endIf
-				endIf
-			endIf
 			DTEC_RefreshMsg.Show()
 		endIf
 	endIf
@@ -459,7 +443,7 @@ Function ApplyPlayerPerkPointsMeditateAddSpell(int weaponType, int rugType = 0)
 			
 		elseIf (PlayerRef.HasSpell(DTEC_FocusSpellAb))
 			
-			; has spell, remind player - but no refund
+			; has spell, remind player
 			if (rugType == 1)
 				(DTEC_MagicFocusQuest as DTEC_MagicFocusQuestScript).PublicStopAll()
 			endIf
@@ -843,7 +827,11 @@ Function HandleOnUpdate()
 		if (DTEC_IsOrdinatorActive.GetValueInt() as bool)
 			AddOrdinatorVancianToPlayer()
 		endIf
+	elseIf (IsFatigueRecovered)
+		SurvivalRecoverFatigue(1)
 	endIf
+	
+	IsFatigueRecovered = false
 	
 	; have we been disabled or still in intro?
 	if (DTEC_MonitorTentsEnable.GetValue() <= 0.0)
@@ -1306,6 +1294,25 @@ Function StopMonitoring()
 	endIf
 	updateWaitSeconds = 182.0
 	;Debug.Trace(myScriptName + " disabled")
+endFunction
+
+Function SurvivalRecoverFatigue(int level)
+	Spell drainSpell = DTEC_CommonF.GetSurvivalDrainedSpell()
+	Spell tiredSpell = DTEC_CommonF.GetSurvivalTiredSpell()
+	Spell refreshSpell = DTEC_CommonF.GetSurvivalRefreshedSpell()
+	if (drainSpell != None && PlayerRef.HasSpell(drainSpell))
+		;Debug.Notification(" remove Drain spell")
+		PlayerRef.RemoveSpell(drainSpell)
+		if (level >= 2 && refreshSpell != None)
+			PlayerRef.AddSpell(refreshSpell, false)
+		endIf
+	elseIf (tiredSpell != None && PlayerRef.HasSpell(tiredSpell))
+		;Debug.Notification("remove Tired spell")
+		PlayerRef.RemoveSpell(tiredSpell)
+		if (level >= 2 && refreshSpell != None)
+			PlayerRef.AddSpell(refreshSpell, false)
+		endIf
+	endIf
 endFunction
 
 ; not currently used
