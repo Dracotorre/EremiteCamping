@@ -86,6 +86,13 @@ Function MaintainMod()
 			(DTEC_MainShelterQuestP as DTEC_MainShelterQuestScript).ApplyPlayerPerkPointsUpgrade()
 		endIf
 		
+		if (oldV < 2.11)
+			; error correction for wrong type of spell added
+			if (PlayerRef.HasSpell((DTEC_MainShelterQuestP as DTEC_MainShelterQuestScript).DTEC_FocusSpellAbMagicka))
+				PlayerRef.RemoveSpell((DTEC_MainShelterQuestP as DTEC_MainShelterQuestScript).DTEC_FocusSpellAbMagicka)
+			endIf
+		endIf
+		
 		DTEC_PrevVersion.SetValue(currentV)
 	endIf
 	
