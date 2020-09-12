@@ -16,21 +16,26 @@ GlobalVariable property Camp_Setting_TakeOff_Cuirass auto
 GlobalVariable property DTEC_IsFrostfallActive auto
 GlobalVariable property DTEC_FollowerUndressEnabled auto
 Armor property DTEC_DummyRing auto
+Furniture property Camp_SpouseBed auto
 
 Actor property MyActor auto hidden
 
 ; private vars
 
 int updateStep = -1
+bool MyBedIsSpouse = false
 
 Event OnActivate(ObjectReference akActionRef)
 	
 	if ((akActionRef as Actor) != PlayerRef)
+		
 		if (Camp_Setting_CampingArmorTakeOff.GetValueInt() == 2 && DTEC_FollowerUndressEnabled.GetValue() > 0.0)
 			bool okUndress = true
 			updateStep = 0
 			Actor thisActorRef = akActionRef as Actor
+			
 			if (thisActorRef && CampUtil.IsTrackedFollower(thisActorRef))
+				
 				if (thisActorRef.IsChild())
 					okUndress = false
 				elseIf (thisActorRef.HasKeyword(ActorTypeCreature))
@@ -54,7 +59,15 @@ Event OnActivate(ObjectReference akActionRef)
 				if (okUndress)
 					updateStep = 1
 					MyActor = akActionRef as Actor
-					; no need for RegisterForSingleUpdate(1.2) override Campfire bed
+					; no need for RegisterForSingleUpdate(1.2) override Campfire bed unless this is a spouse bed
+					; 
+					if (Camp_SpouseBed != None && self.GetBaseObject() == Camp_SpouseBed)
+						; spouse bedroll lacks Campfire script so we must mark and do updates
+						MyBedIsSpouse = true
+						RegisterForSingleUpdate(1.2)
+					else
+						MyBedIsSpouse = false
+					endIf
 				endIf
 			endIf
 		endIf
@@ -73,8 +86,11 @@ Event OnUpdate()
 			updateStep = 2
 
 		endIf
+		if (MyBedIsSpouse)
+			; no Campfire weapon display script for spouse, so keep updating until done like Campfire script does
+			RegisterForSingleUpdate(1)
+		endIf
 	elseIf (updateStep >= 2)
-
 		; redress
 		RedressActor(MyActor)
 		updateStep = -1
