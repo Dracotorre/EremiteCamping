@@ -24,6 +24,9 @@ GlobalVariable property DTEC_MFQNeedConjuration auto
 GlobalVariable property DTEC_MFQNeedDestruction auto
 GlobalVariable property DTEC_MFQNeedIllusion auto
 GlobalVariable property DTEC_MFQNeedRestoration auto
+{ not used }
+GlobalVariable property DTEC_MFQNeedRestorationP auto
+{ correct for v2.22+ }
 
 Spell property DTEC_AnimalAllyBlessSpell auto 				; illusion ability to cast
 MagicEffect property DTEC_AnimalAllyEffect auto
@@ -179,7 +182,7 @@ Function PrepMenu()
 	DTEC_MFQNeedConjuration.SetValueInt(0)
 	DTEC_MFQNeedIllusion.SetValueInt(0)
 	DTEC_MFQNeedDestruction.SetValueInt(0)
-	DTEC_MFQNeedRestoration.SetValueInt(0)
+	DTEC_MFQNeedRestorationP.SetValueInt(0)
 	
 	float skillLevel = PlayerRef.GetActorValue("Alteration")
 	if (skillLevel >= 50.0)
@@ -217,17 +220,19 @@ Function PrepMenu()
 	
 	skillLevel = PlayerRef.GetActorValue("Illusion")
 	if (skillLevel >= 50.0)
+
 		DTEC_MFQNeedIllusion.SetValueInt(1)
 	endIf
 	
 	skillLevel = PlayerRef.GetActorValue("Restoration")
 	if (skillLevel >= 50.0)
+
 		if (!PlayerRef.HasSpell(DTEC_RestoreHealthSpell))
-			DTEC_MFQNeedRestoration.SetValueInt(1)
+			DTEC_MFQNeedRestorationP.SetValueInt(1)
 			
 		elseIf (DTEC_IsFrostfallActive.GetValueInt() >= 1 || DTEC_CampfireUpdated.GetValueInt() >= 1)
 			if (!PlayerRef.HasSpell(DTEC_WarmthSpell))
-				DTEC_MFQNeedRestoration.SetValueInt(1)
+				DTEC_MFQNeedRestorationP.SetValueInt(1)
 			endIf
 		endIf
 	endIf
