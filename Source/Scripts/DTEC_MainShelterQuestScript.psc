@@ -288,14 +288,14 @@ Function AddRefreshToPlayer()
 	endIf
 endFunction
 
-; same conditions found in Ordinator 
+; same conditions found in Ordinator     --- v2.23 - remove this is incorrect usage
 Function AddOrdinatorVancianToPlayer()
 	if (DTEC_SettingEnabled.GetValue() >= 1.0)
 		Perk vancianPerk = DTEC_CommonF.GetOrdinatorVancianPerk()
-		if (vancianPerk && !PlayerRef.HasPerk(vancianPerk) && PlayerRef.GetBaseActorValue("Alteration") >= 30)
+		if (vancianPerk != None && !PlayerRef.HasPerk(vancianPerk) && PlayerRef.GetBaseActorValue("Alteration") >= 30)
 			Perk altMaster = DTEC_CommonF.GetOrdinatorAltMasteryPerk()
-			if (altMaster && PlayerRef.HasPerk(altMaster))
-				PlayerRef.AddPerk(vancianPerk)
+			if (altMaster != None && PlayerRef.HasPerk(altMaster))
+				; should check if have vancianPerk then restore spells from Ordinator 
 			endIf
 		endIf
 	endIf
@@ -824,9 +824,10 @@ Function HandleOnUpdate()
 	
 	if (isRefreshed)
 		AddRefreshToPlayer()
-		if (DTEC_IsOrdinatorActive.GetValueInt() as bool)
-			AddOrdinatorVancianToPlayer()
-		endIf
+		; v2.23 fix -- do nothing here
+		;if (DTEC_IsOrdinatorActive.GetValueInt() as bool)
+		;	AddOrdinatorVancianToPlayer()
+		;endIf
 	elseIf (IsFatigueRecovered)
 		SurvivalRecoverFatigue(1)
 	endIf
