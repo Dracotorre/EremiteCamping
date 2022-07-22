@@ -39,7 +39,7 @@ Event OnPlayerLoadGame()
 	
 	;Debug.Trace("[DTEC_PlayerAliasScript] OnLoad")
 	reqOnUpdate = true
-	RegisterForSingleUpdate(3.2)
+	RegisterForSingleUpdate(12.2)			; v2.24 - increased time
 
 EndEvent
 

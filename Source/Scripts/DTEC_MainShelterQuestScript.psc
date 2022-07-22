@@ -164,13 +164,9 @@ float updateWaitSecsDefault
 
 ; ******************* Events ***************
 
-Event OnLoad()
-	self.OnInit()
-endEvent
-
 Event OnInit()
 	CampDataInitialized = false
-	Utility.Wait(7.0)
+	Utility.Wait(24.0)					;v2.24 - increased time
 	StartAll()
 endEvent
 
