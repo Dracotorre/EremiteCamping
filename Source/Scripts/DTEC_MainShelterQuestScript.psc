@@ -836,16 +836,21 @@ Function HandleOnUpdate()
 			StopMonitoring()
 		endIf
 		updateWaitSeconds = 120.0
-	elseIf (isSurvivalModeUpdated && !DTEC_CommonF.IsSurvivalModeEnabled() && !isFrostfallRunning)
+	
+	elseIf (isSurvivalModeUpdated && !DTEC_CommonF.IsSurvivalModeEnabled() && isFrostFallActive && !isFrostfallRunning)
+		; now stop if no Survival and no Frostfall running v2.25
 		if (isEnabled)
 			StopMonitoring()
 		endIf
 		updateWaitSeconds = 64.0
-	elseIf (!isSurvivalModeUpdated && isFrostfallActive && !isFrostfallRunning)
+		
+	elseIf (!isSurvivalModeUpdated && isFrostfallActive && !isFrostfallRunning)			
+		; no survival installed, Frostfall stopped
 		if (isEnabled)
 			StopMonitoring()
 		endIf
 		updateWaitSeconds = 64.0
+	
 	elseIf (!isEnabled)
 		isEnabled = true
 		;Debug.Trace(myScriptName + " enabled")
